@@ -42,7 +42,7 @@ router.put('/me', authenticate, async (req, res) => {
     }
 });
 
-// GET ALL USERS (ADMIN)
+// GET ALL CUSTOMERS (ADMIN)
 router.get('/', authenticate, async (req, res) => {
     try {
         const [users] = await pool.query(`
@@ -55,9 +55,11 @@ router.get('/', authenticate, async (req, res) => {
                 avatar_url,
                 created_at
             FROM User
+            WHERE role = 'customer'  -- FILTER DITAMBAHKAN DI SINI (Aman untuk Produksi)
             ORDER BY created_at DESC
         `);
 
+        // Frontend mengharapkan response dalam bentuk array langsung sesuai dengan struktur awal
         res.json(users);
     } catch (error) {
         res.status(500).json({
