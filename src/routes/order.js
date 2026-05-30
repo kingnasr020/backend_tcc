@@ -10,11 +10,11 @@ router.post('/buat', async (req, res) => {
         const sekarang = new Date();
 
         const [result] = await pool.query(
-            'INSERT INTO \`Order\` (order_code, customer_id, layanan_id, alamat_servis, deskripsi_kerusakan, jadwal_tanggal, jadwal_waktu_mulai, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO `Order` (order_code, customer_id, layanan_id, alamat_servis, deskripsi_kerusakan, jadwal_tanggal, jadwal_waktu_mulai, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             [orderCode, parseInt(customer_id), parseInt(layanan_id), alamat_servis, deskripsi_kerusakan, new Date(jadwal_tanggal), sekarang, 'pending']
         );
 
-        const [newOrder] = await pool.query('SELECT * FROM \`Order\` WHERE id = ?', [result.insertId]);
+        const [newOrder] = await pool.query('SELECT * FROM `Order` WHERE id = ?', [result.insertId]);
 
         res.status(201).json({ success: true, message: "Order dibuat!", data: newOrder[0] });
     } catch (error) {
@@ -52,10 +52,10 @@ router.get('/antrean', async (req, res) => {
 router.put('/:id/status', async (req, res) => {
     try {
         const orderId = parseInt(req.params.id);
-        const { status } = req.body;
+        const { status, teknisi_id } = req.body;
 
-        await pool.query('UPDATE \`Order\` SET status = ? WHERE id = ?', [status, orderId]);
-        const [updatedOrder] = await pool.query('SELECT * FROM \`Order\` WHERE id = ?', [orderId]);
+        await pool.query('UPDATE `Order` SET status = ? WHERE id = ?', [status, orderId]);
+        const [updatedOrder] = await pool.query('SELECT * FROM `Order` WHERE id = ?', [orderId]);
 
         res.json({ success: true, message: "Status diperbarui", data: updatedOrder[0] });
     } catch (error) {
@@ -77,6 +77,41 @@ router.post('/:id/diagnosa', async (req, res) => {
         const [diagnosa] = await pool.query('SELECT * FROM OrderDiagnosa WHERE id = ?', [result.insertId]);
 
         res.status(201).json({ success: true, message: "Diagnosa berhasil disimpan", data: diagnosa[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// POST: Input Rating & Ulasan (NEW!)
+router.post('/:id/rating', async (req, res) => {
+    try {
+        const { rating, ulasan } = req.body;
+        const orderId = parseInt(req.params.id);
+
+        // 1. Simpan Rating
+        await pool.query('INSERT INTO Rating (order_id, rating, ulasan) VALUES (?, ?, ?)', [orderId, rating, ulasan]);
+
+        // 2. Update status order
+        await pool.query('UPDATE `Order` SET status = ? WHERE id = ?', ['closed', orderId]);
+
+        // 3. Update rating_avg (LANGSUNG DARI TABEL ORDER, TANPA JOIN)
+        const [order] = await pool.query('SELECT teknisi_id FROM `Order` WHERE id = ?', [orderId]);
+        
+        if (order.length > 0 && order[0].teknisi_id) {
+            const teknisiId = order[0].teknisi_id;
+            await pool.query(`
+                UPDATE Technician t
+                SET t.rating_avg = (
+                    SELECT AVG(r.rating) 
+                    FROM Rating r 
+                    JOIN \`Order\` o ON r.order_id = o.id 
+                    WHERE o.teknisi_id = ?
+                )
+                WHERE t.user_id = ?
+            `, [teknisiId, teknisiId]);
+        }
+
+        res.status(201).json({ success: true, message: "Rating berhasil!" });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }

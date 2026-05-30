@@ -13,12 +13,14 @@ router.get('/', async (req, res) => {
 });
 
 // POST: Tambah layanan baru (Admin)
+// POST: Tambah layanan baru (Admin)
 router.post('/admin', async (req, res) => {
     try {
         const { nama, kategori, deskripsi, harga_minimum, harga_maksimum, durasi_estimasi_jam } = req.body;
         
+        // TAMBAHKAN 'is_active' DAN NILAI '1' DI SINI
         const [result] = await pool.query(
-            'INSERT INTO Service (nama, kategori, deskripsi, harga_minimum, harga_maksimum, durasi_estimasi_jam) VALUES (?, ?, ?, ?, ?, ?)',
+            'INSERT INTO Service (nama, kategori, deskripsi, harga_minimum, harga_maksimum, durasi_estimasi_jam, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)',
             [nama, kategori, deskripsi, harga_minimum, harga_maksimum, durasi_estimasi_jam]
         );
 
